@@ -16,10 +16,49 @@
 #include "imgdraw_test.h"
 
 
+
+
+void initialize_top_screen() {
+    // Initialize bitmap backgrounds system
+    NF_InitBitmapBgSys(0, 1);
+
+    // Initialize storage buffers
+    NF_Init16bitsBgBuffers();
+
+    // Initialize backbuffers
+    NF_Init16bitsBackBuffer(0);
+
+    // Enable backbuffers
+    NF_Enable16bitsBackBuffer(0);
+
+    // Load bitmap files from NitroFS
+    NF_Load16bitsBg("bg/splash", 0);
+    NF_Load16bitsBg("bg/clear", 1);
+
+    // Load image to VRAM of both screens
+    NF_Copy16bitsBuffer(0, 1, 0);
+
+    NF_Flip16bitsBackBuffer(0);
+}
+
+
+
+void initialize_bottom_screen() {
+    // Initialize tiled backgrounds system
+    NF_InitTiledBgBuffers();    // Initialize storage buffers
+    NF_InitTiledBgSys(1);       // Bottom screen
+
+    // Initialize sprite system
+    NF_InitSpriteBuffers();     // Initialize storage buffers
+    NF_InitSpriteSys(1);        // Bottom screen
+}
+
+
+
 void initialize_screens() {
     // Initialize 2D engine in both screens and use mode 0
-    NF_Set2D(0, 0);
-    NF_Set2D(1, 0);
+    NF_Set2D(0, 5);
+    NF_Set2D(1, 5);
 
     consoleDemoInit();
     printf("\n NitroFS init. Please wait.\n\n");
@@ -29,32 +68,21 @@ void initialize_screens() {
     nitroFSInit(NULL);
     NF_SetRootFolder("NITROFS");
 
-    // Initialize tiled backgrounds system
-    NF_InitTiledBgBuffers();    // Initialize storage buffers
-    NF_InitTiledBgSys(0);       // Top screen
-    NF_InitTiledBgSys(1);       // Bottom screen
-
-    // Initialize sprite system
-    NF_InitSpriteBuffers();     // Initialize storage buffers
-    NF_InitSpriteSys(0);        // Top screen
-    NF_InitSpriteSys(1);        // Bottom screen
+    initialize_top_screen();
+    initialize_bottom_screen();
 }
 
 
+
 int main(int argc, char **argv) {
-    imgdraw_test();
-
-
     initialize_screens();
 
     gui_sprites::setup_all();
     backgrounds::setup_all();
     text_console::setup();
 
-
     // Start 
     view::go_to_parameters_screen();
-
 
     while (true) {
         scanKeys(); // Read keypad

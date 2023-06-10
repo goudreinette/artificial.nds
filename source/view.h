@@ -13,7 +13,11 @@ namespace view {
     void run() {
         view::current_view = view::RUNNING;
 
-        NF_HideBg(0, 1);
+        NF_CreateTiledBg(1, 1, "instructionsbackground");
+
+        NF_Copy16bitsBuffer(0, 1, 1);
+        NF_Flip16bitsBackBuffer(0);
+
         NF_ClearTextLayer16(1, 0); // Clear the text layer
 
         instructions::generate();
@@ -27,7 +31,12 @@ namespace view {
     void go_to_parameters_screen() {
         view::current_view = view::PARAMETERS;
 
-        NF_ShowBg(0, 1);
+        NF_CreateTiledBg(1, 1, "background");
+
+
+        NF_Copy16bitsBuffer(0, 1, 0);
+        NF_Flip16bitsBackBuffer(0);
+
         NF_ClearTextLayer16(1, 0); // Clear the text layer
 
         // Write the parameters
