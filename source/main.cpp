@@ -228,7 +228,8 @@ namespace gui_sprites {
     enum GUI_SPRITE_IDS {
         GENERATE_BUTTON,
         BACK_BUTTON,
-        SLIDER_KNOB
+        SLIDER_KNOB,
+        ABOUT_BUTTON,
     };
 
 
@@ -281,6 +282,9 @@ public:
 
 // create a class for each scene, inheriting from the abstract class 'Scene'
 class ParametersScene : public Scene {
+private:
+    int about_countdown = 60;
+
 public:
     enum SLIDER_KNOBS {
         SCALE = 7,
@@ -297,12 +301,20 @@ public:
         // Load bitmap background from NitroFS for the top screen
         NF_Load16bitsBg("bg/splash", 0);
 
-        // Bottom screen
+        // Bottom screen background
         NF_LoadTiledBg("bg/paramsbackground", "paramsbackground", 256, 256);
+        // Slider knob
         NF_LoadSpriteGfx("sprite/sliderknob", gui_sprites::SLIDER_KNOB, 16, 16);
         NF_LoadSpritePal("sprite/sliderknob", gui_sprites::SLIDER_KNOB);
         NF_VramSpritePal(1, gui_sprites::SLIDER_KNOB, gui_sprites::SLIDER_KNOB);
         NF_VramSpriteGfx(1, gui_sprites::SLIDER_KNOB, gui_sprites::SLIDER_KNOB, false);
+        // About button
+        NF_LoadSpritePal("sprite/aboutbutton", gui_sprites::ABOUT_BUTTON);
+        NF_VramSpritePal(1, gui_sprites::ABOUT_BUTTON, gui_sprites::ABOUT_BUTTON);
+        NF_LoadSpriteGfx("sprite/aboutbutton", gui_sprites::ABOUT_BUTTON, 64, 32);
+        NF_VramSpriteGfx(1, gui_sprites::ABOUT_BUTTON, gui_sprites::ABOUT_BUTTON, false);
+
+        // Generate button
         NF_LoadSpriteGfx("sprite/generatebutton", gui_sprites::GENERATE_BUTTON, 32, 16);
         NF_VramSpriteGfx(1, gui_sprites::GENERATE_BUTTON, gui_sprites::GENERATE_BUTTON, false);
     }
@@ -311,6 +323,8 @@ public:
         NF_CreateSprite(1, gui_sprites::GENERATE_BUTTON, gui_sprites::GENERATE_BUTTON, gui_sprites::PALETTE_NUM,
                         SCREEN_WIDTH - 32 - 3, 3);
 
+        NF_CreateSprite(1, gui_sprites::ABOUT_BUTTON, gui_sprites::ABOUT_BUTTON, gui_sprites::ABOUT_BUTTON,
+                        3, 3);
 
         // Load splash image to VRAM of top screen
         NF_Copy16bitsBuffer(0, 1, 0);
@@ -329,6 +343,8 @@ public:
                         35 + KNOB_Y_OFFSET * 3);
         NF_CreateSprite(1, WIGGLINESS, gui_sprites::SLIDER_KNOB, gui_sprites::SLIDER_KNOB, KNOB_X_OFFSET,
                         35 + KNOB_Y_OFFSET * 4);
+
+        about_countdown = 60; // reset
     }
 
     NEXT_ACTION update() override {
@@ -338,6 +354,15 @@ public:
         bool inside_run_button = gui_sprites::touch_inside_sprite(touch, SCREEN_WIDTH - 32 - 3, 3, 32, 16);
         if (inside_run_button) {
             return GENERATE;
+        }
+
+        if (about_countdown > 0) {
+            about_countdown--;
+        } else {
+            bool inside_about_button = gui_sprites::touch_inside_sprite(touch, 3, 3, 43, 16);
+            if (inside_about_button) {
+                return SHOW_ABOUT;
+            }
         }
 
         // Update slider knobs FIXME ugly code
@@ -371,14 +396,16 @@ public:
     }
 
     void leave() override {
-//        NF_DeleteTiledBg(1, 1);
+        NF_DeleteTiledBg(1, 1);
 //        NF_DeleteTiledBg(1, 1);
         NF_DeleteSprite(1, SCALE);
         NF_DeleteSprite(1, REPETITIONS);
         NF_DeleteSprite(1, SPIKYNESS);
         NF_DeleteSprite(1, COLOURFULNESS);
         NF_DeleteSprite(1, WIGGLINESS);
+
         NF_DeleteSprite(1, gui_sprites::GENERATE_BUTTON);
+        NF_DeleteSprite(1, gui_sprites::ABOUT_BUTTON);
     }
 };
 
@@ -443,7 +470,7 @@ public:
         touchPosition touch;
         touchRead(&touch);
 
-        bool inside_back_button = gui_sprites::touch_inside_sprite(touch, 3, 3, 32, 16);
+        bool inside_back_button = gui_sprites::touch_inside_sprite(touch, 3, 3, 16, 16);
         if (inside_back_button) {
             return BACK;
         }
@@ -480,19 +507,41 @@ public:
 };
 
 class AboutScene : public Scene {
+private:
+    int back_countdown = 60;
+
 public:
     void setup() {
-
+        NF_LoadTiledBg("bg/aboutpage", "aboutpage", 256, 256);
     }
 
     void enter() override {
+        NF_CreateTiledBg(1, 1, "aboutpage");
+        NF_CreateSprite(1, gui_sprites::BACK_BUTTON, gui_sprites::BACK_BUTTON, gui_sprites::PALETTE_NUM, 3, 3);
+
+        back_countdown = 60; // reset
     }
 
     NEXT_ACTION update() override {
+        touchPosition touch;
+        touchRead(&touch);
+
+        if (back_countdown > 0) {
+            back_countdown--;
+        }
+
+        // if within back button
+        bool inside_back_button = gui_sprites::touch_inside_sprite(touch, 3, 3, 16, 16);
+        if (inside_back_button && back_countdown == 0) {
+            return BACK;
+        }
+
         return NONE;
     }
 
     void leave() override {
+        NF_DeleteTiledBg(1, 1);
+        NF_DeleteSprite(1, gui_sprites::BACK_BUTTON);
     }
 };
 
