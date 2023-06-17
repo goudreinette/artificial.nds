@@ -219,6 +219,8 @@ namespace instructions {
      */
     class Instruction {
         public:
+            bool is_blackandwhite = false;
+            int frames_per_color = 500;
             virtual bool do_step() = 0; // Ret
             virtual std::string print() = 0; // turns 'true' when done
     };
@@ -235,16 +237,19 @@ namespace instructions {
         int current_y;
 
         bool do_step() override {
-            if (step_i >= count) return true;
+            if (step_i++ > count) return true;
 
             if (!current_x) current_x = x1;
             if (!current_y) current_y = y1;
 
+            // Set global draw parameters
+            draw::is_blackandwhite = this->is_blackandwhite;
+            draw::frames_per_color = this->frames_per_color;
+
+            // Draw line
             current_x = utils::rrandom(100) - 50;
             current_y = utils::rrandom(100) - 50;
             draw::draw_line(x1, y1, current_x, current_y);
-
-            step_i++;
 
             return false;
         }
@@ -254,19 +259,19 @@ namespace instructions {
         }
     };
 
-    class PaintShapeSplatter: public Instruction {
+    class ShapeSplatter: public Instruction {
         int center_x;
         int center_y;
         int radius;
         int count;
+        bool filled;
+        bool has_border;
 
         int step_i = 0;
 
         bool do_step() override {
-            if (step_i >= count) return true;
+            if (step_i++ > count) return true;
 
-
-            step_i++;
             return false;
         }
 
@@ -275,50 +280,65 @@ namespace instructions {
         }
     };
 
-    class PaintSquiggle: public Instruction {
+    class Squiggle: public Instruction {
     public:
         int start_x;
         int start_y;
         int x_step;
         int y_step;
         int max_steps;
+        int radius;
 
         int current_x = 0;
         int current_y = 0;
         int step_i = 0;
 
         bool do_step() override {
-            if (step_i >= max_steps) return true;
+            if (step_i++ > max_steps) return true;
 
             if (!current_x) current_x = start_x;
             if (!current_y) current_y = start_y;
 
+            // Set global draw parameters
+            draw::is_blackandwhite = this->is_blackandwhite;
+            draw::frames_per_color = this->frames_per_color;
 
-            draw::draw_filled_circle(current_x, current_y, 5);
-            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
+            draw::draw_filled_circle(current_x, current_y, radius);
+//            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
 
             current_x += x_step + utils::rrandom(10) - 5;
             current_y += y_step + utils::rrandom(10) - 5;
-
-            step_i++;
 
             return false;
         }
 
         std::string print() override {
-            return "PaintSquiggle";
+            return "Squiggle x:" + std::to_string(start_x) + " y:" + std::to_string(start_y) + " steps:" + std::to_string(max_steps);
         }
     };
 
-    class PaintConfetti: public Instruction {
+    class Confetti: public Instruction {
+    public:
         int count;
+        int scale;
+
+        int step_i = 0;
 
         bool do_step() override {
-            return true;
+            if (step_i++ > count) return true;
+
+            // Set global draw parameters
+            draw::is_blackandwhite = this->is_blackandwhite;
+            draw::frames_per_color = this->frames_per_color;
+            draw::draw_filled_circle(utils::rrandom(SCREEN_WIDTH), utils::rrandom(SCREEN_HEIGHT), utils::rrandom(scale));
+//            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
+
+
+            return false;
         }
 
         std::string print() override {
-            return "PaintConfetti";
+            return "Confetti count:" + std::to_string(count);
         }
     };
 
@@ -336,31 +356,40 @@ namespace instructions {
     void generate() {
         instructions.erase(instructions.begin(), instructions.end());
 
-        for (int i = 0; i < 10; i++) {
-            int type = utils::rrandom(4);
-//            if (type == 0) {
-//                auto lineSweep = new LineSweep();
-//                lineSweep->count = 10;
-//                lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
-//                lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
-//                instructions.push_back(lineSweep);
-//            }
-//
-//            if (type == 1) {
-                auto squiggle = new PaintSquiggle();
+        for (int i = 0; i < parameters.repetitions / 5; i++) {
+            int t = utils::rrandom(3);
+            Instruction* instruction;
+            if (t == 0) {
+                auto lineSweep = new LineSweep();
+                lineSweep->count = 10;
+                lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
+                lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
+                instruction = lineSweep;
+            }
+
+            if (t == 1) {
+                auto squiggle = new Squiggle();
                 squiggle->x_step = utils::rrandom(10) - 5;
                 squiggle->y_step = utils::rrandom(10) - 5;
-                squiggle->max_steps = 100;
+                squiggle->max_steps = utils::rrandom(150);
+                squiggle->radius = utils::rrandom(parameters.scale / 5) + 1;
                 squiggle->start_x = utils::rrandom(SCREEN_WIDTH);
                 squiggle->start_y = utils::rrandom(SCREEN_HEIGHT);
+                instruction = squiggle;
+            }
+
+            if (t == 2) {
+                auto confetti = new Confetti();
+                confetti->count = utils::rrandom(100);
+                confetti->scale = utils::rrandom(parameters.scale / 10) + 1;
+                instruction = confetti;
+            }
 
 
-                instructions.push_back(squiggle);
-//            }
-//
-//            if (type == 2) {
-//
-//            }
+            // Valid for all instructions
+            instruction->is_blackandwhite = utils::rrandom(128) > parameters.colourfulness;
+            instruction->frames_per_color = utils::rrandom(1000);
+            instructions.push_back(instruction);
         }
     }
 }
@@ -564,12 +593,19 @@ public:
 class RunScene : public Scene {
     int done_countdown = 200;
 
+    enum TEXT_COLORS {
+        WHITE,
+        OLIVE,
+        PINK,
+    };
+
 public:
     void setup() override {
         NF_LoadTiledBg("bg/instructionsbackground", "instructionsbackground", 256, 256);
 
         // Load text font files from NitroFS
         NF_LoadTextFont("fnt/default", "down", 256, 256, 0);
+
 
         // Load the images used for drawing
         NF_Load16bitsImage("graphicsparts/circlesmall", draw::CIRCLE_SMALL, 16, 16);
@@ -602,8 +638,25 @@ public:
         // Loop over the instructions and write text to the text layer
         for (int i = 0; i < instructions::instructions.size(); i++) {
             std::string instruction = instructions::instructions[i]->print();
+            if (i < instructions::instructions_index) {
+                NF_SetTextColor(1, 0, OLIVE); // Set the text color to purple (defined in setup
+            } else if (i == instructions::instructions_index) {
+                NF_SetTextColor(1, 0, PINK);// Text with white color
+            } else {
+                NF_SetTextColor(1, 0, WHITE);// Text with white color
+            }
             NF_WriteText(1, 0, 1, 4 + i, instruction.c_str()); // Text with default color
         }
+    }
+
+    void print_render_status() {
+        // Print the rendering status
+        std::string status_text = std::to_string(instructions::instructions_index) + "/" + std::to_string(instructions::instructions.size());
+        if (instructions::instructions_index == instructions::instructions.size()) {
+            status_text = "Done!";
+        }
+
+        NF_WriteText(1, 0, 25, 1, status_text.c_str());
     }
 
     void enter() override {
@@ -614,20 +667,22 @@ public:
         NF_Copy16bitsBuffer(0, 1, 1);
         NF_Flip16bitsBackBuffer(0);
 
-        //  Create the text layer
+        //  Create the text layers
         NF_CreateTextLayer16(1, 0, 0, "down");
+        NF_ClearTextLayer(1, 0);
+
+        // Define text colors
+        NF_DefineTextColor(1, 0, WHITE, 31, 31, 31); // White
+        NF_DefineTextColor(1, 0, OLIVE, 0, 13, 10); // Olive Green
+        NF_DefineTextColor(1, 0, PINK, 31, 14, 20); // Pink
+
 
         instructions::generate();
         instructions::instructions_index = 0;
         done_countdown = 200;
 
-        // Create a text layer
-//        NF_CreateTextLayer16(1, 0, 0, "down");
-//        // Define a color for the text font
-//        NF_DefineTextColor(1, 0, 1, 31, 31, 31); // White
 
 //        print_parameter_values();
-        print_instructions();
 
         // Update text layers
         NF_UpdateTextLayers();
@@ -642,10 +697,10 @@ public:
             return BACK;
         }
 
-        // Debug information
-        std::string status_text = std::to_string(instructions::instructions_index) + "/" + std::to_string(instructions::instructions.size());
-        NF_WriteText(1, 0, 27, 1, status_text.c_str());
-//        NF_WriteText16(1, 0, 1, 8, std::to_string(done_countdown).c_str());
+
+        // Print the instructions and which have been done already
+        print_render_status();
+        print_instructions();
         NF_UpdateTextLayers();
 
 
@@ -657,15 +712,11 @@ public:
             }
         } else {
             // Actual executing / drawing code
-//            int x = utils::rrandom(256);
-//            int y = utils::rrandom(192);
-//            draw::draw_filled_circle(x, y, 10);
             bool is_done = instructions::instructions[instructions::instructions_index]->do_step();
             if (is_done) {
                 instructions::instructions_index++;
             }
         }
-
 
         return NONE;
     }
