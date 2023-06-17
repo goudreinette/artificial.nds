@@ -5,7 +5,8 @@
 #include <filesystem.h>
 #include <nf_lib.h>
 #include <random>
-
+#include <algorithm>
+#include <iostream>
 
 
 /*
@@ -636,11 +637,15 @@ public:
 
     void print_instructions() {
         // Loop over the instructions and write text to the text layer
-        for (int i = 0; i < instructions::instructions.size(); i++) {
-            std::string instruction = instructions::instructions[i]->print();
-            if (i < instructions::instructions_index) {
+
+        int limit = std::min<int>(instructions::instructions.size(), 19);
+        for (int i = 0; i < limit; i++) {
+            int offset = std::max<int>(instructions::instructions_index-19, 0);
+            int i_offsetted = i + offset;
+            std::string instruction = instructions::instructions[i_offsetted]->print();
+            if (i_offsetted < instructions::instructions_index) {
                 NF_SetTextColor(1, 0, OLIVE); // Set the text color to purple (defined in setup
-            } else if (i == instructions::instructions_index) {
+            } else if (i_offsetted == instructions::instructions_index) {
                 NF_SetTextColor(1, 0, PINK);// Text with white color
             } else {
                 NF_SetTextColor(1, 0, WHITE);// Text with white color
@@ -650,9 +655,17 @@ public:
     }
 
     void print_render_status() {
+        // Set text color
+        bool done = instructions::instructions_index == instructions::instructions.size();
+        if (done) {
+            NF_SetTextColor(1, 0, PINK);// Text with white color
+        } else {
+            NF_SetTextColor(1, 0, WHITE);// Text with white color
+        }
+
         // Print the rendering status
         std::string status_text = std::to_string(instructions::instructions_index) + "/" + std::to_string(instructions::instructions.size());
-        if (instructions::instructions_index == instructions::instructions.size()) {
+        if (done) {
             status_text = "Done!";
         }
 
@@ -662,30 +675,35 @@ public:
     void enter() override {
         NF_CreateSprite(1, gui_sprites::BACK_BUTTON, gui_sprites::BACK_BUTTON, gui_sprites::PALETTE_NUM, 3, 3);
 
-        // Load the background and dump it to the screen
+        // Load the background
         NF_CreateTiledBg(1, 1, "instructionsbackground");
-        NF_Copy16bitsBuffer(0, 1, 1);
-        NF_Flip16bitsBackBuffer(0);
 
         //  Create the text layers
         NF_CreateTextLayer16(1, 0, 0, "down");
-        NF_ClearTextLayer(1, 0);
 
         // Define text colors
         NF_DefineTextColor(1, 0, WHITE, 31, 31, 31); // White
         NF_DefineTextColor(1, 0, OLIVE, 0, 13, 10); // Olive Green
         NF_DefineTextColor(1, 0, PINK, 31, 14, 20); // Pink
 
+        restart();
 
+        // Update text layers
+        NF_UpdateTextLayers();
+    }
+
+    void restart() {
+        // Generate new instructions and reset
         instructions::generate();
         instructions::instructions_index = 0;
         done_countdown = 200;
 
+        // Clear the screen
+        NF_Copy16bitsBuffer(0, 1, 1);
+        NF_Flip16bitsBackBuffer(0);
 
-//        print_parameter_values();
-
-        // Update text layers
-        NF_UpdateTextLayers();
+        // Clear the text layer
+        NF_ClearTextLayer(1, 0);
     }
 
     NEXT_ACTION update() override {
@@ -708,7 +726,7 @@ public:
         if (instructions::instructions_index == instructions::instructions.size()) {
             done_countdown--;
             if (done_countdown == 0) {
-                return BACK;
+                restart();
             }
         } else {
             // Actual executing / drawing code
