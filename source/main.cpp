@@ -14,8 +14,13 @@
 |--------------------------------------------------------------------------
 */
 namespace utils {
+    std::random_device rd;
+    std::mt19937 mt(rd());
+
     int rrandom(int range) {
-        return rand() % range;
+        std::uniform_int_distribution<int> dist(0.0, range);
+
+        return dist(mt);
     }
 }
 
@@ -32,11 +37,30 @@ namespace draw {
      */
     const bool SLOWMO = true;
 
+    enum GRAPHICS_PARTS_IDS {
+        PIXEL_BLACK = 3,
+        PIXEL_PINK = 4,
+        PIXEL_PURPLE = 5,
+        PIXEL_LILAC = 6,
+        PIXEL_CYAN = 7,
+        PIXEL_OLIVE = 8,
+        CIRCLE_SMALL = 9,
+    };
 
-    void draw_pixel(int x, int y) {
-        NF_Draw16bitsImage(0, 2, x, y, true); // Ball (magenta is transparent)
+    int current_color = 0;
+
+    void cycle_color() {
+        current_color++;
+        if (current_color == 5) {
+            current_color = 0;
+        }
     }
 
+    void draw_pixel(int x, int y) {
+        cycle_color();
+        int color = 4 + current_color;
+        NF_Draw16bitsImage(0, color, x, y, true); // Ball (magenta is transparent)
+    }
 
     void draw_line(int x1, int y1, int x2, int y2) {
         int dx = abs(x2 - x1);
@@ -180,36 +204,138 @@ struct Parameters {
 |--------------------------------------------------------------------------
 */
 namespace instructions {
-    std::vector<std::string> instructions = {};
+    /**
+     * Different types of instructions
+     */
+    class Instruction {
+        public:
+            virtual bool do_step() = 0; // Ret
+            virtual std::string print() = 0; // turns 'true' when done
+    };
+
+
+    class LineSweep: public Instruction {
+    public:
+        int x1;
+        int y1;
+        int count;
+
+        int step_i;
+        int current_x;
+        int current_y;
+
+        bool do_step() override {
+            if (step_i >= count) return true;
+
+            if (!current_x) current_x = x1;
+            if (!current_y) current_y = y1;
+
+            current_x = utils::rrandom(100) - 50;
+            current_y = utils::rrandom(100) - 50;
+            draw::draw_line(x1, y1, current_x, current_y);
+
+            step_i++;
+
+            return false;
+        }
+
+        std::string print() override {
+            return "LineSweep x1:" + std::to_string(x1) + " y1:" + std::to_string(y1) + " no:" + std::to_string(count);
+        }
+    };
+
+    class PaintShapeSplatter: public Instruction {
+        int center_x;
+        int center_y;
+        int radius;
+        int count;
+
+        int step_i;
+
+        bool do_step() override {
+            if (step_i >= count) return true;
+
+
+            step_i++;
+        }
+
+        std::string print() {
+            return "PaintShapeSplatter";
+        }
+    };
+
+    class PaintSquiggle: public Instruction {
+        int start_x;
+        int start_y;
+        int x_step;
+        int y_step;
+        int count;
+
+        bool do_step() {
+            return true;
+        }
+
+        std::string print() {
+            return "PaintSquiggle";
+        }
+    };
+
+    class PaintConfetti: public Instruction {
+        int count;
+
+        bool do_step() {
+            return true;
+        }
+
+        std::string print() {
+            return "PaintConfetti";
+        }
+    };
+
+
+
+
+    auto instructions = std::vector<Instruction*>();
 
     int instructions_length = 100;
-    int instructions_index = 0;
+    unsigned int instructions_index = 0;
 
     /**
      * Generates the instructions for the current parameters
      */
     void generate() {
-        std::vector<std::string> code = {};
+        instructions.erase(instructions.begin(), instructions.end());
 
-        // circles
-        for (int c = 0; c < utils::rrandom(5); c++) {
-            code.push_back(
-                    "(circle " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
-                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " + std::to_string(utils::rrandom(10)) +
-                    ")");
+        for (int i = 0; i < 10; i++) {
+            auto lineSweep = new LineSweep();
+            lineSweep->count = 10;
+            lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
+            lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
+            instructions.push_back(lineSweep);
         }
 
-        // lines
-        for (int l = 0; l < utils::rrandom(5); l++) {
-            code.push_back(
-                    "(line " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
-                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) + ")");
-        }
 
-        instructions = code;
+//        std::vector<std::string> code = {};
+//
+//        // circles
+//        for (int c = 0; c < utils::rrandom(5); c++) {
+//            code.push_back(
+//                    "(circle " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
+//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
+//                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " + std::to_string(utils::rrandom(10)) +
+//                    ")");
+//        }
+//
+//        // lines
+//        for (int l = 0; l < utils::rrandom(5); l++) {
+//            code.push_back(
+//                    "(line " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
+//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
+//                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
+//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) + ")");
+//        }
+
+//        instructions = code;
     }
 }
 
@@ -258,7 +384,6 @@ namespace gui_sprites {
 | Scenes
 |--------------------------------------------------------------------------
 */
-
 enum NEXT_ACTION {
     NONE,
     GENERATE,
@@ -418,11 +543,16 @@ public:
         NF_LoadTiledBg("bg/instructionsbackground", "instructionsbackground", 256, 256);
 
         // Load text font files from NitroFS
-        NF_LoadTextFont16("fnt/font16", "down", 256, 256, 0);
+        NF_LoadTextFont("fnt/default", "down", 256, 256, 0);
 
         // Load the images used for drawing
-        NF_Load16bitsImage("graphicsparts/circlesmall", 1, 16, 16);
-        NF_Load16bitsImage("graphicsparts/pixel", 2, 16, 16);
+        NF_Load16bitsImage("graphicsparts/circlesmall", draw::CIRCLE_SMALL, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel", draw::PIXEL_BLACK, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel1", draw::PIXEL_PINK, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel2", draw::PIXEL_PURPLE, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel3", draw::PIXEL_LILAC, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel4", draw::PIXEL_CYAN, 16, 16);
+        NF_Load16bitsImage("graphicsparts/pixel5", draw::PIXEL_OLIVE, 16, 16);
 
         // White background
         NF_Load16bitsBg("bg/clear", 1);
@@ -433,6 +563,23 @@ public:
 
     }
 
+    void print_parameter_values() {
+        // Print the values of all parameters
+        NF_WriteText(1, 0, 1, 2, std::to_string(parameters.scale).c_str());
+        NF_WriteText(1, 0, 1, 3, std::to_string(parameters.repetitions).c_str());
+        NF_WriteText(1, 0, 1, 4, std::to_string(parameters.spikyness).c_str());
+        NF_WriteText(1, 0, 1, 5, std::to_string(parameters.colourfulness).c_str());
+        NF_WriteText(1, 0, 1, 6, std::to_string(parameters.wiggliness).c_str());
+    }
+
+    void print_instructions() {
+        // Loop over the instructions and write text to the text layer
+        for (int i = 0; i < instructions::instructions.size(); i++) {
+            std::string instruction = instructions::instructions[i]->print();
+            NF_WriteText(1, 0, 1, 4 + i, instruction.c_str()); // Text with default color
+        }
+    }
+
     void enter() override {
         NF_CreateSprite(1, gui_sprites::BACK_BUTTON, gui_sprites::BACK_BUTTON, gui_sprites::PALETTE_NUM, 3, 3);
 
@@ -441,26 +588,20 @@ public:
         NF_Copy16bitsBuffer(0, 1, 1);
         NF_Flip16bitsBackBuffer(0);
 
+        //  Create the text layer
+        NF_CreateTextLayer16(1, 0, 0, "down");
+
         instructions::generate();
         instructions::instructions_index = 0;
         done_countdown = 200;
 
         // Create a text layer
-        NF_CreateTextLayer16(1, 0, 0, "down");
-        // Define a color for the text font
-        NF_DefineTextColor(1, 0, 1, 31, 31, 31); // White
+//        NF_CreateTextLayer16(1, 0, 0, "down");
+//        // Define a color for the text font
+//        NF_DefineTextColor(1, 0, 1, 31, 31, 31); // White
 
-        // Loop over the instructions and write text to the text layer
-//        for (int i = 0; i < instructions::instructions.size(); i++) {
-//            const char *instruction = instructions::instructions[i].c_str();
-//            NF_WriteText16(1, 0, 1, 2 + i, instruction); // Text with default color
-//        }
-        // Print the values of all parameters
-//        NF_WriteText16(1, 0, 1, 2, std::to_string(parameters.scale).c_str());
-//        NF_WriteText16(1, 0, 1, 3, std::to_string(parameters.repetitions).c_str());
-//        NF_WriteText16(1, 0, 1, 4, std::to_string(parameters.spikyness).c_str());
-//        NF_WriteText16(1, 0, 1, 5, std::to_string(parameters.colourfulness).c_str());
-//        NF_WriteText16(1, 0, 1, 6, std::to_string(parameters.wiggliness).c_str());
+//        print_parameter_values();
+        print_instructions();
 
         // Update text layers
         NF_UpdateTextLayers();
@@ -476,23 +617,27 @@ public:
         }
 
         // Debug information
-        NF_WriteText16(1, 0, 1, 7, std::to_string(instructions::instructions_index).c_str());
+        std::string status_text = std::to_string(instructions::instructions_index) + "/" + std::to_string(instructions::instructions.size());
+        NF_WriteText(1, 0, 27, 1, status_text.c_str());
 //        NF_WriteText16(1, 0, 1, 8, std::to_string(done_countdown).c_str());
         NF_UpdateTextLayers();
 
 
         // Done countdown
-        if (instructions::instructions_index == instructions::instructions_length) {
+        if (instructions::instructions_index == instructions::instructions.size()) {
             done_countdown--;
             if (done_countdown == 0) {
                 return BACK;
             }
         } else {
             // Actual executing / drawing code
-            int x = utils::rrandom(256);
-            int y = utils::rrandom(192);
-            draw::draw_filled_circle(x, y, 10);
-            instructions::instructions_index++;
+//            int x = utils::rrandom(256);
+//            int y = utils::rrandom(192);
+//            draw::draw_filled_circle(x, y, 10);
+            bool is_done = instructions::instructions[instructions::instructions_index]->do_step();
+            if (is_done) {
+                instructions::instructions_index++;
+            }
         }
 
 

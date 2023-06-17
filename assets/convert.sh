@@ -37,6 +37,11 @@ mv *.pal *.img *.map ../nitrofiles/bg
 grit dot.png -ftb -fh! -gb -gB16
 grit circlesmall.png -ftb -fh! -gb -gB16
 grit pixel.png -ftb -fh! -gb -gB16
+grit pixel1.png -ftb -fh! -gb -gB16
+grit pixel2.png -ftb -fh! -gb -gB16
+grit pixel3.png -ftb -fh! -gb -gB16
+grit pixel4.png -ftb -fh! -gb -gB16
+grit pixel5.png -ftb -fh! -gb -gB16
 
 for file in *.bin; do
     mv -- "$file" "${file%.bin}"
