@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <iostream>
+#include "effolkronium/random.hpp"
 
 
 /*
@@ -14,20 +15,11 @@
 | Utils
 |--------------------------------------------------------------------------
 */
+// get base random alias which is auto seeded and has static API and internal state
+using Random = effolkronium::random_static;
+
 namespace utils {
-    std::random_device rd;
-    std::mt19937 mt(rd());
 
-    int rrandom(int range) {
-        std::uniform_int_distribution<int> dist(0.0, range);
-
-        return dist(mt);
-    }
-
-    int random(int low, int high){ // inclusive range [low-high]
-        std::uniform_int_distribution<int> dist(low, high);
-        return dist(mt);
-    }
 }
 
 
@@ -60,7 +52,7 @@ namespace draw {
     int frame = 0;
 
     void cycle_color() {
-        if (frame == frames_per_color) {
+        if (frame >= frames_per_color) {
             frame = 0;
             current_color = (current_color + 1) % 5;
         } else {
@@ -306,8 +298,8 @@ namespace instructions {
             draw::frames_per_color = this->frames_per_color;
 
             // Draw line
-            current_x = utils::random(-parameters.scale, parameters.scale);
-            current_y = utils::random(-parameters.scale, parameters.scale);
+            current_x = Random::get(-parameters.scale, parameters.scale);
+            current_y = Random::get(-parameters.scale, parameters.scale);
 
             draw::draw_line(last_x, last_y, current_x, current_y);
 
@@ -340,11 +332,11 @@ namespace instructions {
             draw::is_blackandwhite = this->is_blackandwhite;
             draw::frames_per_color = this->frames_per_color;
 
-            int x2 = center_x + utils::random(-100, 100);
-            int y2 = center_y + utils::random(-100, 100);
+            int x2 = center_x + Random::get(-100, 100);
+            int y2 = center_y + Random::get(-100, 100);
 
-            int x3 = center_x + utils::random(-100, 100);
-            int y3 = center_y + utils::random(-100, 100);
+            int x3 = center_x + Random::get(-100, 100);
+            int y3 = center_y + Random::get(-100, 100);
 
             // Draw shape
             if (filled) {
@@ -406,8 +398,8 @@ namespace instructions {
             draw::draw_filled_circle(current_x, current_y, radius);
 //            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
 
-            current_x += x_step + utils::random(5, 10);
-            current_y += y_step + utils::random(5, 10);
+            current_x += x_step + Random::get(5, 10);
+            current_y += y_step + Random::get(5, 10);
 
             return false;
         }
@@ -431,9 +423,9 @@ namespace instructions {
             draw::is_blackandwhite = this->is_blackandwhite;
             draw::frames_per_color = this->frames_per_color;
 
-            int x = utils::random(0, SCREEN_WIDTH);
-            int y = utils::random(0, SCREEN_HEIGHT);
-            int spikyness = utils::random(0, parameters.spikyness);
+            int x = Random::get(0, SCREEN_WIDTH);
+            int y = Random::get(0, SCREEN_HEIGHT);
+            int spikyness = Random::get(0, parameters.spikyness);
             if (spikyness < 64) {
                 draw::draw_filled_circle(x, y, scale);
             } else if (spikyness < 84) {
@@ -467,46 +459,46 @@ namespace instructions {
         instructions.erase(instructions.begin(), instructions.end());
 
         for (int i = 0; i < parameters.repetitions / 5; i++) {
-            int t = utils::random(0, 10);
+            int t = Random::get(0, 10);
             Instruction* instruction;
 
             if (t > 5) {
-                if (utils::random(0, parameters.spikyness) > utils::random(0, parameters.wiggliness)) {
+                if (Random::get(0, parameters.spikyness) > Random::get(0, parameters.wiggliness)) {
                     auto lineSweep = new LineSweep();
-                    lineSweep->count = utils::random(0, 50);
-                    lineSweep->x1 = utils::random(0, SCREEN_WIDTH);
-                    lineSweep->y1 = utils::random(0, SCREEN_HEIGHT);
+                    lineSweep->count = Random::get(0, 50);
+                    lineSweep->x1 = Random::get(0, SCREEN_WIDTH);
+                    lineSweep->y1 = Random::get(0, SCREEN_HEIGHT);
                     instruction = lineSweep;
                 } else {
                     auto confetti = new Confetti();
-                    confetti->count = utils::random(0, 100);
-                    confetti->scale = utils::random(1, parameters.scale / 25);
+                    confetti->count = Random::get(0, 100);
+                    confetti->scale = Random::get(1, parameters.scale / 25);
                     instruction = confetti;
                 }
             } else {
-                if (utils::random(0, parameters.spikyness) > utils::random(0, parameters.wiggliness)) {
+                if (Random::get(0, parameters.spikyness) > Random::get(0, parameters.wiggliness)) {
                     auto burst = new Burst();
-                    burst->center_x = utils::random(0, SCREEN_WIDTH);
-                    burst->center_y = utils::random(0, SCREEN_HEIGHT);
-                    burst->radius = utils::random(0, parameters.scale) + 1;
-                    burst->count = utils::random(0, 100);
-                    burst->filled = utils::random(50, 100);
+                    burst->center_x = Random::get(0, SCREEN_WIDTH);
+                    burst->center_y = Random::get(0, SCREEN_HEIGHT);
+                    burst->radius = Random::get(0, parameters.scale) + 1;
+                    burst->count = Random::get(0, 100);
+                    burst->filled = Random::get(50, 100);
                     instruction = burst;
                 } else {
                     auto squiggle = new Squiggle();
-                    squiggle->x_step = utils::random(-5, 5);
-                    squiggle->y_step = utils::random(-5, 5);
-                    squiggle->max_steps = utils::random(0, 150);
-                    squiggle->radius = utils::random(1, parameters.scale / 5);
-                    squiggle->start_x = utils::random(0, SCREEN_WIDTH);
-                    squiggle->start_y = utils::random(0, SCREEN_HEIGHT);
+                    squiggle->x_step = Random::get(-5, 5);
+                    squiggle->y_step = Random::get(-5, 5);
+                    squiggle->max_steps = Random::get(0, 150);
+                    squiggle->radius = Random::get(1, parameters.scale / 5);
+                    squiggle->start_x = Random::get(0, SCREEN_WIDTH);
+                    squiggle->start_y = Random::get(0, SCREEN_HEIGHT);
                     instruction = squiggle;
                 }
             }
 
             // Valid for all instructions
-            instruction->is_blackandwhite = utils::random(0, 90) > parameters.colourfulness;
-            instruction->frames_per_color = utils::random(1, 200);
+            instruction->is_blackandwhite = Random::get(0, 90) > parameters.colourfulness;
+            instruction->frames_per_color = Random::get(1, 200);
             instructions.push_back(instruction);
         }
     }
