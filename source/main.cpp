@@ -23,6 +23,11 @@ namespace utils {
 
         return dist(mt);
     }
+
+    int random(int low, int high){ // inclusive range [low-high]
+        std::uniform_int_distribution<int> dist(low, high);
+        return dist(mt);
+    }
 }
 
 
@@ -45,7 +50,7 @@ namespace draw {
         PIXEL_LILAC = 6,
         PIXEL_CYAN = 7,
         PIXEL_OLIVE = 8,
-        CIRCLE_SMALL = 9,
+        CIRCLE_SMALL = 9
     };
 
     // Global drawing state
@@ -124,6 +129,57 @@ namespace draw {
         for (int y = y1; y <= y2; y++) {
             for (int x = x1; x <= x2; x++) {
                 draw_pixel(x, y);
+            }
+
+            if (SLOWMO) NF_Flip16bitsBackBuffer(0);
+        }
+    }
+
+    void draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3) {
+        draw_line(x1, y1, x2, y2);
+        draw_line(x2, y2, x3, y3);
+        draw_line(x3, y3, x1, y1);
+    }
+
+    void draw_triangle_filled(int x1, int y1, int x2, int y2, int x3, int y3) {
+        int min_x = std::min(x1, std::min(x2, x3));
+        int max_x = std::max(x1, std::max(x2, x3));
+        int min_y = std::min(y1, std::min(y2, y3));
+        int max_y = std::max(y1, std::max(y2, y3));
+
+        for (int y = min_y; y <= max_y; y++) {
+            for (int x = min_x; x <= max_x; x++) {
+                if (x1 == x2 && x2 == x3) {
+                    if (x == x1) {
+                        draw_pixel(x, y);
+                    }
+                } else if (y1 == y2 && y2 == y3) {
+                    if (y == y1) {
+                        draw_pixel(x, y);
+                    }
+                } else {
+                    int x1_x2 = x1 - x2;
+                    int x2_x3 = x2 - x3;
+                    int x3_x1 = x3 - x1;
+                    int y1_y2 = y1 - y2;
+                    int y2_y3 = y2 - y3;
+                    int y3_y1 = y3 - y1;
+
+                    int x_x1 = x - x1;
+                    int x_x2 = x - x2;
+                    int x_x3 = x - x3;
+                    int y_y1 = y - y1;
+                    int y_y2 = y - y2;
+                    int y_y3 = y - y3;
+
+                    int a = x1_x2 * y_y1 - y1_y2 * x_x1;
+                    int b = x2_x3 * y_y2 - y2_y3 * x_x2;
+                    int c = x3_x1 * y_y3 - y3_y1 * x_x3;
+
+                    if ((a >= 0 && b >= 0 && c >= 0) || (a <= 0 && b <= 0 && c <= 0)) {
+                        draw_pixel(x, y);
+                    }
+                }
             }
 
             if (SLOWMO) NF_Flip16bitsBackBuffer(0);
@@ -236,6 +292,8 @@ namespace instructions {
         int step_i = 0;
         int current_x;
         int current_y;
+        int last_x;
+        int last_y;
 
         bool do_step() override {
             if (step_i++ > count) return true;
@@ -248,9 +306,13 @@ namespace instructions {
             draw::frames_per_color = this->frames_per_color;
 
             // Draw line
-            current_x = utils::rrandom(100) - 50;
-            current_y = utils::rrandom(100) - 50;
-            draw::draw_line(x1, y1, current_x, current_y);
+            current_x = utils::random(-parameters.scale, parameters.scale);
+            current_y = utils::random(-parameters.scale, parameters.scale);
+
+            draw::draw_line(last_x, last_y, current_x, current_y);
+
+            last_x = current_x;
+            last_y = current_y;
 
             return false;
         }
@@ -260,7 +322,8 @@ namespace instructions {
         }
     };
 
-    class ShapeSplatter: public Instruction {
+    class Burst: public Instruction {
+    public:
         int center_x;
         int center_y;
         int radius;
@@ -273,11 +336,41 @@ namespace instructions {
         bool do_step() override {
             if (step_i++ > count) return true;
 
+            // Set global draw parameters
+            draw::is_blackandwhite = this->is_blackandwhite;
+            draw::frames_per_color = this->frames_per_color;
+
+            int x2 = center_x + utils::random(-100, 100);
+            int y2 = center_y + utils::random(-100, 100);
+
+            int x3 = center_x + utils::random(-100, 100);
+            int y3 = center_y + utils::random(-100, 100);
+
+            // Draw shape
+            if (filled) {
+                draw::draw_triangle_filled(center_x, center_y, x2, y2, x3, y3);
+            } else {
+                draw::draw_triangle(center_x, center_y, x2, y2, x3, y3);
+            }
+//            if (filled) {
+//                if (utils::rrandom(100) > 50) {
+//                    draw::draw_filled_rectangle(x - radius, y - radius, x + radius, y + radius);
+//                } else {
+//                    draw::draw_filled_circle(center_x, center_y, radius);
+//                }
+//            } else {
+//                if (utils::rrandom(100) > 50) {
+//                    draw::draw_rectangle(center_x - radius, center_y - radius, center_x + radius, center_y + radius);
+//                } else {
+//                    draw::draw_circle(center_x, center_y, radius);
+//                }
+//            }
+
             return false;
         }
 
         std::string print() {
-            return "PaintShapeSplatter";
+            return "Burst x:" + std::to_string(center_x) + " y:" + std::to_string(center_y) + " r:" + std::to_string(radius) + " no:" + std::to_string(count);
         }
     };
 
@@ -300,6 +393,12 @@ namespace instructions {
             if (!current_x) current_x = start_x;
             if (!current_y) current_y = start_y;
 
+            // Invert direction
+            if (current_x > SCREEN_WIDTH + radius) x_step = -x_step;
+            if (current_x < 0 - radius) x_step = -x_step;
+            if (current_y > SCREEN_HEIGHT + radius) y_step = -y_step;
+            if (current_y < 0 - radius) y_step = -y_step;
+
             // Set global draw parameters
             draw::is_blackandwhite = this->is_blackandwhite;
             draw::frames_per_color = this->frames_per_color;
@@ -307,8 +406,8 @@ namespace instructions {
             draw::draw_filled_circle(current_x, current_y, radius);
 //            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
 
-            current_x += x_step + utils::rrandom(10) - 5;
-            current_y += y_step + utils::rrandom(10) - 5;
+            current_x += x_step + utils::random(5, 10);
+            current_y += y_step + utils::random(5, 10);
 
             return false;
         }
@@ -331,8 +430,18 @@ namespace instructions {
             // Set global draw parameters
             draw::is_blackandwhite = this->is_blackandwhite;
             draw::frames_per_color = this->frames_per_color;
-            draw::draw_filled_circle(utils::rrandom(SCREEN_WIDTH), utils::rrandom(SCREEN_HEIGHT), utils::rrandom(scale));
-//            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
+
+            int x = utils::random(0, SCREEN_WIDTH);
+            int y = utils::random(0, SCREEN_HEIGHT);
+            int spikyness = utils::random(0, parameters.spikyness);
+            if (spikyness < 64) {
+                draw::draw_filled_circle(x, y, scale);
+            } else if (spikyness < 84) {
+                draw::draw_filled_rectangle(x, y, x+scale*2, y+scale*2);
+            }
+
+
+            //            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
 
 
             return false;
@@ -358,38 +467,46 @@ namespace instructions {
         instructions.erase(instructions.begin(), instructions.end());
 
         for (int i = 0; i < parameters.repetitions / 5; i++) {
-            int t = utils::rrandom(3);
+            int t = utils::random(0, 10);
             Instruction* instruction;
-            if (t == 0) {
-                auto lineSweep = new LineSweep();
-                lineSweep->count = 10;
-                lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
-                lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
-                instruction = lineSweep;
-            }
 
-            if (t == 1) {
-                auto squiggle = new Squiggle();
-                squiggle->x_step = utils::rrandom(10) - 5;
-                squiggle->y_step = utils::rrandom(10) - 5;
-                squiggle->max_steps = utils::rrandom(150);
-                squiggle->radius = utils::rrandom(parameters.scale / 5) + 1;
-                squiggle->start_x = utils::rrandom(SCREEN_WIDTH);
-                squiggle->start_y = utils::rrandom(SCREEN_HEIGHT);
-                instruction = squiggle;
+            if (t > 5) {
+                if (utils::random(0, parameters.spikyness) > utils::random(0, parameters.wiggliness)) {
+                    auto lineSweep = new LineSweep();
+                    lineSweep->count = utils::random(0, 50);
+                    lineSweep->x1 = utils::random(0, SCREEN_WIDTH);
+                    lineSweep->y1 = utils::random(0, SCREEN_HEIGHT);
+                    instruction = lineSweep;
+                } else {
+                    auto confetti = new Confetti();
+                    confetti->count = utils::random(0, 100);
+                    confetti->scale = utils::random(1, parameters.scale / 25);
+                    instruction = confetti;
+                }
+            } else {
+                if (utils::random(0, parameters.spikyness) > utils::random(0, parameters.wiggliness)) {
+                    auto burst = new Burst();
+                    burst->center_x = utils::random(0, SCREEN_WIDTH);
+                    burst->center_y = utils::random(0, SCREEN_HEIGHT);
+                    burst->radius = utils::random(0, parameters.scale) + 1;
+                    burst->count = utils::random(0, 100);
+                    burst->filled = utils::random(50, 100);
+                    instruction = burst;
+                } else {
+                    auto squiggle = new Squiggle();
+                    squiggle->x_step = utils::random(-5, 5);
+                    squiggle->y_step = utils::random(-5, 5);
+                    squiggle->max_steps = utils::random(0, 150);
+                    squiggle->radius = utils::random(1, parameters.scale / 5);
+                    squiggle->start_x = utils::random(0, SCREEN_WIDTH);
+                    squiggle->start_y = utils::random(0, SCREEN_HEIGHT);
+                    instruction = squiggle;
+                }
             }
-
-            if (t == 2) {
-                auto confetti = new Confetti();
-                confetti->count = utils::rrandom(100);
-                confetti->scale = utils::rrandom(parameters.scale / 10) + 1;
-                instruction = confetti;
-            }
-
 
             // Valid for all instructions
-            instruction->is_blackandwhite = utils::rrandom(128) > parameters.colourfulness;
-            instruction->frames_per_color = utils::rrandom(1000);
+            instruction->is_blackandwhite = utils::random(0, 90) > parameters.colourfulness;
+            instruction->frames_per_color = utils::random(1, 200);
             instructions.push_back(instruction);
         }
     }
@@ -578,7 +695,6 @@ public:
 
     void leave() override {
         NF_DeleteTiledBg(1, 1);
-//        NF_DeleteTiledBg(1, 1);
         NF_DeleteSprite(1, SCALE);
         NF_DeleteSprite(1, REPETITIONS);
         NF_DeleteSprite(1, SPIKYNESS);
@@ -592,7 +708,7 @@ public:
 
 
 class RunScene : public Scene {
-    int done_countdown = 200;
+    int done_countdown = 0;
 
     enum TEXT_COLORS {
         WHITE,
@@ -696,7 +812,7 @@ public:
         // Generate new instructions and reset
         instructions::generate();
         instructions::instructions_index = 0;
-        done_countdown = 200;
+        done_countdown = 0;
 
         // Clear the screen
         NF_Copy16bitsBuffer(0, 1, 1);
@@ -725,12 +841,13 @@ public:
         // Done countdown
         if (instructions::instructions_index == instructions::instructions.size()) {
             done_countdown--;
-            if (done_countdown == 0) {
+            if (done_countdown <= 0) {
                 restart();
             }
         } else {
             // Actual executing / drawing code
             bool is_done = instructions::instructions[instructions::instructions_index]->do_step();
+            NF_Flip16bitsBackBuffer(0);
             if (is_done) {
                 instructions::instructions_index++;
             }
