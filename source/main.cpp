@@ -47,19 +47,29 @@ namespace draw {
         CIRCLE_SMALL = 9,
     };
 
+    // Global drawing state
+    bool is_blackandwhite = false;
     int current_color = 0;
+    int frames_per_color = 500;
+    int frame = 0;
 
     void cycle_color() {
-        current_color++;
-        if (current_color == 5) {
-            current_color = 0;
+        if (frame == frames_per_color) {
+            frame = 0;
+            current_color = (current_color + 1) % 5;
+        } else {
+            frame++;
         }
     }
 
     void draw_pixel(int x, int y) {
-        cycle_color();
-        int color = 4 + current_color;
-        NF_Draw16bitsImage(0, color, x, y, true); // Ball (magenta is transparent)
+        if (is_blackandwhite) {
+            NF_Draw16bitsImage(0, PIXEL_BLACK, x, y, true);
+        } else {
+            cycle_color();
+            int color = 4 + current_color;
+            NF_Draw16bitsImage(0, color, x, y, true);
+        }
     }
 
     void draw_line(int x1, int y1, int x2, int y2) {
@@ -220,7 +230,7 @@ namespace instructions {
         int y1;
         int count;
 
-        int step_i;
+        int step_i = 0;
         int current_x;
         int current_y;
 
@@ -250,13 +260,14 @@ namespace instructions {
         int radius;
         int count;
 
-        int step_i;
+        int step_i = 0;
 
         bool do_step() override {
             if (step_i >= count) return true;
 
 
             step_i++;
+            return false;
         }
 
         std::string print() {
@@ -265,17 +276,36 @@ namespace instructions {
     };
 
     class PaintSquiggle: public Instruction {
+    public:
         int start_x;
         int start_y;
         int x_step;
         int y_step;
-        int count;
+        int max_steps;
 
-        bool do_step() {
-            return true;
+        int current_x = 0;
+        int current_y = 0;
+        int step_i = 0;
+
+        bool do_step() override {
+            if (step_i >= max_steps) return true;
+
+            if (!current_x) current_x = start_x;
+            if (!current_y) current_y = start_y;
+
+
+            draw::draw_filled_circle(current_x, current_y, 5);
+            NF_Flip16bitsBackBuffer(0); // needed to show the pixel
+
+            current_x += x_step + utils::rrandom(10) - 5;
+            current_y += y_step + utils::rrandom(10) - 5;
+
+            step_i++;
+
+            return false;
         }
 
-        std::string print() {
+        std::string print() override {
             return "PaintSquiggle";
         }
     };
@@ -283,11 +313,11 @@ namespace instructions {
     class PaintConfetti: public Instruction {
         int count;
 
-        bool do_step() {
+        bool do_step() override {
             return true;
         }
 
-        std::string print() {
+        std::string print() override {
             return "PaintConfetti";
         }
     };
@@ -297,8 +327,8 @@ namespace instructions {
 
     auto instructions = std::vector<Instruction*>();
 
-    int instructions_length = 100;
     unsigned int instructions_index = 0;
+
 
     /**
      * Generates the instructions for the current parameters
@@ -307,35 +337,31 @@ namespace instructions {
         instructions.erase(instructions.begin(), instructions.end());
 
         for (int i = 0; i < 10; i++) {
-            auto lineSweep = new LineSweep();
-            lineSweep->count = 10;
-            lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
-            lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
-            instructions.push_back(lineSweep);
+            int type = utils::rrandom(4);
+//            if (type == 0) {
+//                auto lineSweep = new LineSweep();
+//                lineSweep->count = 10;
+//                lineSweep->x1 = utils::rrandom(SCREEN_WIDTH);
+//                lineSweep->y1 = utils::rrandom(SCREEN_HEIGHT);
+//                instructions.push_back(lineSweep);
+//            }
+//
+//            if (type == 1) {
+                auto squiggle = new PaintSquiggle();
+                squiggle->x_step = utils::rrandom(10) - 5;
+                squiggle->y_step = utils::rrandom(10) - 5;
+                squiggle->max_steps = 100;
+                squiggle->start_x = utils::rrandom(SCREEN_WIDTH);
+                squiggle->start_y = utils::rrandom(SCREEN_HEIGHT);
+
+
+                instructions.push_back(squiggle);
+//            }
+//
+//            if (type == 2) {
+//
+//            }
         }
-
-
-//        std::vector<std::string> code = {};
-//
-//        // circles
-//        for (int c = 0; c < utils::rrandom(5); c++) {
-//            code.push_back(
-//                    "(circle " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
-//                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " + std::to_string(utils::rrandom(10)) +
-//                    ")");
-//        }
-//
-//        // lines
-//        for (int l = 0; l < utils::rrandom(5); l++) {
-//            code.push_back(
-//                    "(line " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) +
-//                    " " + std::to_string(utils::rrandom(SCREEN_WIDTH)) + " " +
-//                    std::to_string(utils::rrandom(SCREEN_HEIGHT)) + ")");
-//        }
-
-//        instructions = code;
     }
 }
 
