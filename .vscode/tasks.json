@@ -15,9 +15,9 @@
         {
             "label": "make release",
             "type": "process",
-            "command": "make",
+            "command": "sh",
             "args": [
-                "DEBUG=0"
+                "./convert-assets-and-make.sh"
             ],
             "problemMatcher": [],
             "group": {
@@ -38,7 +38,7 @@
             "label": "run",
             "type": "shell",
             "isBackground": true,
-            "command": "C:\\desmume\\DeSmuME_0.9.11_x86.exe",
+            "command": "Desm",
             "args": [
                 "${workspaceFolder}/${workspaceFolderBasename}.nds"
             ],
