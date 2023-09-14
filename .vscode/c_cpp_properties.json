@@ -2,18 +2,13 @@
     "configurations": [
         {
             "name": "NDS",
-            "forcedInclude": [
-                "${workspaceFolder}/include/vscode_fix.h"
-            ],
             "includePath": [
-                // Mac / Linux
                 "${workspaceFolder}/**",
                 "/opt/devkitpro/libnds/include/**",
                 "/opt/devkitpro/nflib/include/**",
                 "/opt/devkitpro/devkitARM/include/**",
                 "/opt/devkitpro/devkitARM/arm-none-eabi/include/**",
 
-                // Windows
                 "${workspaceFolder}\\**",
                 "C:\\devkitPro\\libnds\\include\\**",
                 "C:\\devkitPro\\libctru\\include\\**",
