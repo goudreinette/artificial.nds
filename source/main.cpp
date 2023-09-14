@@ -2,8 +2,9 @@
 #include <stdio.h> // NOLINT(modernize-deprecated-headers)
 #include <string>
 #include <vector>
-#include <filesystem.h>
 #include <nf_lib.h>
+
+#include <filesystem.h>
 #include <random>
 #include <algorithm>
 #include <iostream>
@@ -33,7 +34,7 @@ namespace draw {
      * If true, the backbuffer will be sent to the screen very often,
      * which will slow down rendering and let you see every step
      */
-    const bool SLOWMO = true;
+    const bool SLOWMO = false;
 
     enum GRAPHICS_PARTS_IDS {
         PIXEL_BLACK = 3,

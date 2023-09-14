@@ -2,3 +2,5 @@ cmake-build-debug/
 .map
 nitrofiles/
 build/
+
+.DS_Store
